@@ -1,8 +1,12 @@
-// #общие полезности региона
+// общие функции
 const getRange = length => [...Array(length).keys()]
+// получаем массив без последнего элемента
 const getWithoutLastElement = array => array.slice(0, array.length - 1)
+// если числа очень близки, то считаем их равными
 const areEqual = (one, another) => Math.abs(one - another) < 0.00000000001
+// случайный элемент из массива (для еды)
 const getRandomFrom = array => array[Math.floor(Math.random() * array.length)]
+// последний элемент мвссива (для головы) так как змею делали с конца
 const getLastElement = array => array[array.length - 1]
 // #крайний регион
 
@@ -33,7 +37,7 @@ class Vector {
   normalize() {
     return this.scaleBy(1 / this.length())
   }
-
+// противоположны ли два вектора
   isOpposite(vector) {
     const { x, y } = this.add(vector)
     return areEqual(x, 0) && areEqual(y, 0)
@@ -44,24 +48,24 @@ class Vector {
   }
 }
 
-class Segment {
-  constructor(start, end) {
-    this.start = start
-    this.end = end
+class Segment {// змеякак массив точек (узлов)
+  constructor(start, end) {// усли у змеи 5 узлов(это значит у неё 4сегмента)
+    this.start = start// начало вектора
+    this.end = end// конецвектора
   }
 
-  getVector() {
-    return this.end.subtract(this.start)
+  getVector() {// получаем длинну отрезка
+    return this.end.subtract(this.start)// из конечного отнимаем начальное
   }
 
-  length() {
+  length() {// длинна отрезка
     return this.getVector().length()
   }
 
-  isPointInside(point) {
-    const first = new Segment(this.start, point)
-    const second = new Segment(point, this.end)
-    return areEqual(this.length(), first.length() + second.length())
+  isPointInside(point) {// 
+    const first = new Segment(this.start, point)// точка начала сегмента
+    const second = new Segment(point, this.end)// точка конца сегмента
+    return areEqual(this.length(), first.length() + second.length())// находим эту точку
   }
 
   getProjectedPoint({ x, y }) {
@@ -71,15 +75,16 @@ class Segment {
     return new Vector(start.x + u * px, start.y + u * py)
   }
 }
-
+// возвращаем сегменты из векторов
+// получаем массив векторов
 const getSegmentsFromVectors = vectors => getWithoutLastElement(vectors)
+// берём текущиё и следующий и передаём в конструктор
   .map((one, index) => new Segment(one, vectors[index + 1]))
-// #endregion
 
 // время вызова setInterval
 const UPDATE_EVERY = 1000 / 60
 
-// векторное направление змеи
+// векторное направление змеи клавишами
 const DIRECTION = {
   TOP: new Vector(0, -1),
   RIGHT: new Vector(1, 0),
@@ -94,25 +99,24 @@ const DEFAULT_GAME_CONFIG = {
   initialSnakeLength: 2,// длина змеи
   initialDirection: DIRECTION.RIGHT// направление вправо
 }
-// 
+// ключи клавиш клавиатуры (направления)
 const MOVEMENT_KEYS = {
   TOP: [87, 38],
   RIGHT: [68, 39],
   DOWN: [83, 40],
   LEFT: [65, 37]
 }
-
+// пробел (остановка игры)
 const STOP_KEY = 32
-// #endregion
 
-// #region game core
-// расположение еды (чтоб еда не совпадала стелом змеи)
+// расположение еды (чтоб еда не совпадала с телом змеи)
 const getFood = (width, height, snake) => {
   const allPositions = getRange(width).map(x => 
-    getRange(height).map(y => new Vector(x + 0.5, y + 0.5))
+    getRange(height).map(y => new Vector(x + 0.5, y + 0.5))// проходим по периметру поля
   ).flat()
   const segments = getSegmentsFromVectors(snake)
   const freePositions = allPositions
+  // проверяем несовпадает ли еда со змеёй
     .filter(point => segments.every(segment => !segment.isPointInside(point)))
   return getRandomFrom(freePositions)
 }
@@ -149,7 +153,7 @@ const getGameInitialState = (config = {}) => {
     score: 0
   }
 }
-
+// создаём хвост (старая змея и расстояние)
 const getNewTail = (oldSnake, distance) => {
   const { tail } = getWithoutLastElement(oldSnake).reduce((acc, point, index) => {
     if (acc.tail.length !== 0) {
@@ -176,18 +180,19 @@ const getNewTail = (oldSnake, distance) => {
   }, { distance, tail: [] })
   return tail
 }
-
+// получаем направление
 const getNewDirection = (oldDirection, movement) => {
-  const newDirection = DIRECTION[movement]
+  const newDirection = DIRECTION[movement] //задаём новое направление
+  // новое направление отличается от старого
   const shouldChange = newDirection && !oldDirection.isOpposite(newDirection)
-  return shouldChange ? newDirection : oldDirection
+  return shouldChange ? newDirection : oldDirection//если направление сменилось, то возвращаем его, если нет, то прежнее
 }
-
+// обрабатываем тело змеи
 const getStateAfterMoveProcessing = (state, movement, distance) => {
   const newTail = getNewTail(state.snake, distance)
   const oldHead = getLastElement(state.snake)
-  const newHead = oldHead.add(state.direction.scaleBy(distance))
-  const newDirection = getNewDirection(state.direction, movement)
+  const newHead = oldHead.add(state.direction.scaleBy(distance))// если движемся прямо
+  const newDirection = getNewDirection(state.direction, movement)// если изменили направление
   if (!state.direction.equalTo(newDirection)) {
     const { x: oldX, y: oldY } = oldHead
     const [
@@ -267,40 +272,32 @@ const isGameOver = ({ snake, width, height }) => {
     return distance < 0.5
   })
 }
-
+// получение нового состояние процесса игры
 const getNewGameState = (state, movement, timespan) => {
-  const distance = state.speed * timespan
+  const distance = state.speed * timespan// сколько змея прошла за заданное время
   const stateAfterMove = getStateAfterMoveProcessing(state, movement, distance)
+  // если змея пересекла еду, то увеличиваем её и генерируем новое положение еды
   const stateAfterFood = getStateAfterFoodProcessing(stateAfterMove)
-  if (isGameOver(stateAfterFood)) {
+  if (isGameOver(stateAfterFood)) {// проверяем состояние игры
+    // если закончилась, то генерируем начальное состояние
     return getGameInitialState(state)
   }
-  return stateAfterFood
+  return stateAfterFood// если не закончилась, то возвращаем состояние после обработки еды
 }
 
 // Находим по id игровое поле
 const getContainer = () => document.getElementById('container')
-// const getBody = () =>{
-// const getContainerBody = document.querySelector('body')
-// const getButton = document.createElement('button')
-
-// getContainerBody().appendChild(getButton)
-// getButton.setAttribute('width', width)
-// getButton.setAttribute('height', height)
-
-// }
-// console.log(getBody)
 // размер контейнера
 const getContainerSize = () => {
   const { width, height } = getContainer().getBoundingClientRect()
   return { width, height }// возвращаем размер контейнера
 }
-
+// очистка значений контейнера
 const clearContainer = () => {
-  const container = getContainer()
-  const [child] = container.children
+  const container = getContainer()//берём его значение
+  const [child] = container.children//дочерний элемент
   if (child) {
-    container.removeChild(child)
+    container.removeChild(child)//передаём ему размер контейнера
   }
 }
 // вывод игры на экран
@@ -331,21 +328,21 @@ const getContext = (width, height) => {
   canvas.setAttribute('height', height)
   return context
 }
-
-const renderCells = (context, cellSide, width, height) => {
-  context.globalAlpha = 0.2
-  getRange(width).forEach(column => getRange(height).forEach(row => {
-    if ((column + row) % 2 === 1) {
-      context.fillRect(column * cellSide, row * cellSide, cellSide, cellSide)
-    }
-  }))
-  context.globalAlpha = 1
-}
+// прозрачность ячеен поля
+// const renderCells = (context, cellSide, width, height) => {
+//   context.globalAlpha = 0
+//   getRange(width).forEach(column => getRange(height).forEach(row => {
+//     if ((column + row) % 2 === 1) {
+//       context.fillRect(column * cellSide, row * cellSide, cellSide, cellSide)
+//     }
+//   }))
+//   context.globalAlpha = 1
+// }
 // параметры еды
 const renderFood = (context, cellSide, { x, y }) => {
   context.beginPath()
   context.arc(x, y, cellSide / 2.5, 0, 2 * Math.PI)
-  context.fillStyle = 'red'
+  context.fillStyle = 'red' // цвет
   context.fill()
 }
 // параметры змеи
@@ -356,7 +353,7 @@ const renderSnake = (context, cellSide, snake) => {
   snake.forEach(({ x, y }) => context.lineTo(x, y))
   context.stroke()
 }
-
+// выводим результары
 const renderScores = (score, bestScore) => {
   document.getElementById('current-score').innerText = score
   document.getElementById('best-score').innerText = bestScore
@@ -374,15 +371,15 @@ const render = ({
   projectDistance,// вектора
   projectPosition
 }) => {
-    // холст в рикселях
+    // поле в рикселях
   const [viewWidth, viewHeight] = [width, height].map(projectDistance)
 //  возвращаем контекст 
   const context = getContext(viewWidth, viewHeight)
-  const cellSide = viewWidth / width
-  renderCells(context, cellSide, width, height)
-  renderFood(context, cellSide, projectPosition(food))
-  renderSnake(context, cellSide, snake.map(projectPosition))
-  renderScores(score, bestScore)
+  const cellSide = viewWidth / width//делим ширину экрана на ширину поля
+  // renderCells(context, cellSide, width, height)
+  renderFood(context, cellSide, projectPosition(food))//для еды
+  renderSnake(context, cellSide, snake.map(projectPosition))// позиция для змеи
+  renderScores(score, bestScore)//текущий лучший результат
 }
 
 // 
@@ -396,13 +393,12 @@ const getInitialState = () => {
     ...getProjectors(containerSize, game)// возвращаем координату и расстояние
   }
 }
-
+// закончилась ли игра
 const getNewStatePropsOnTick = (oldState) => {
-  if (oldState.stopTime) return oldState
-
-  const lastUpdate = Date.now()
-  if (oldState.lastUpdate) {
-    const game = getNewGameState(
+  if (oldState.stopTime) return oldState// если игра закончилась
+  const lastUpdate = Date.now() // возвращаем последнее обновление
+  if (oldState.lastUpdate) {// если не закончилась
+    const game = getNewGameState(// возвращаем обновение в реальном времени
       oldState.game,
       oldState.movement,
       lastUpdate - oldState.lastUpdate
@@ -411,11 +407,13 @@ const getNewStatePropsOnTick = (oldState) => {
       game,
       lastUpdate
     }
+    // проверяем не стал ли счет больше чем лучший результат
     if (game.score > oldState.bestScore) {
+      // если результат лучше, обновляем localStorage
       localStorage.setItem('bestScore', game.score)
       return {
         ...newProps,
-        bestScore: game.score
+        bestScore: game.score// возвращаем обновлённый результат
       }
     }
     return newProps
@@ -433,25 +431,27 @@ const startGame = () => {
   }
 // изменение размера окна (обработчик событий)
   window.addEventListener('resize', () => {
-    clearContainer()
+    clearContainer()//удаляем размеры
     const containerSize = getContainerSize()
+    // адаптируем поле в зависимости от размера экрана
     updateState({ ...containerSize, ...getProjectors(containerSize, state.game) })
     tick()
   })
   // при нажатии и удерживании клавиши 
   window.addEventListener('keydown', ({ which }) => {
     const entries = Object.entries(MOVEMENT_KEYS)
+    // получаем ключи клавиш
     const [movement] = entries.find(([, keys]) => keys.includes(which)) || [undefined]
-    updateState({ movement })
+    updateState({ movement })//если клавиша нажата, то 
   })
   // при нажатии клавиши вверх
   window.addEventListener('keyup', ({ which }) => {
     updateState({ movement: undefined })
-    if (which === STOP_KEY) {
+    if (which === STOP_KEY) {// если нажат пробел
       const now = Date.now()
-      if (state.stopTime) {
+      if (state.stopTime) {// если время существует, то игрок хочет продолжить игру
         updateState({ stopTime: undefined, lastUpdate: state.time + now - state.lastUpdate })
-      } else {
+      } else { 
         updateState({ stopTime: now })
       }
     }
